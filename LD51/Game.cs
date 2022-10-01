@@ -1,23 +1,26 @@
+using LD51.Framework;
+using LD51.Logic.Scenes;
 using Raylib_cs;
 
 namespace LD51;
 
-public class Game
+public class Game : IGame
 {
-    private readonly int _width;
-    private readonly int _height;
     private readonly string _title;
 
-    public Game(int width, int height, string title)
+    private IScene _scene;
+
+    public int Width => Raylib.GetScreenWidth();
+    public int Height => Raylib.GetScreenHeight();
+
+    public Game(int width, int height, int targetFps, string title)
     {
-        _width = width;
-        _height = height;
         _title = title;
+        Initialize(width, height, targetFps);
     }
 
     public void Run()
     {
-        Initialize();
         Load();
         while (!Raylib.WindowShouldClose())
         {
@@ -28,22 +31,35 @@ public class Game
         }
     }
 
-    private void Initialize()
+    private void Initialize(int width, int height, int targetFps)
     {
-        Raylib.InitWindow(_width, _height, _title);
-        Raylib.SetTargetFPS(120);
+        Raylib.InitWindow(width, height, _title);
+        Raylib.SetTargetFPS(targetFps);
+        Raylib.SetWindowState(ConfigFlags.FLAG_WINDOW_RESIZABLE);
+        Raylib.HideCursor();
     }
 
     private void Load()
     {
+        _scene = new GameScene(this);
+        _scene.Load();
+    }
+
+    public void Close()
+    {
+        Raylib.CloseWindow();
     }
 
     private void Update()
     {
+        _scene.Update();
     }
 
     private void Draw()
     {
         Raylib.ClearBackground(Color.RAYWHITE);
+        _scene.Draw();
+
+        Raylib.DrawText("FPS: " + Raylib.GetFPS(), 16, 16, 16, Color.MAROON);
     }
 }

@@ -10,4 +10,10 @@
   <ItemGroup>
     <PackageReference Include="Raylib-cs" Version="4.0.0.2" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="Resources\**\*.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>   
+  </ItemGroup>
 </Project>
