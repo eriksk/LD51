@@ -37,6 +37,7 @@ public class Game : IGame
         Raylib.SetTargetFPS(targetFps);
         Raylib.SetWindowState(ConfigFlags.FLAG_WINDOW_RESIZABLE);
         Raylib.HideCursor();
+        Raylib.InitAudioDevice();
     }
 
     private void Load()
@@ -60,6 +61,6 @@ public class Game : IGame
         Raylib.ClearBackground(Color.RAYWHITE);
         _scene.Draw();
 
-        Raylib.DrawText("FPS: " + Raylib.GetFPS(), 16, 16, 16, Color.MAROON);
+        Raylib.DrawText("FPS: " + Raylib.GetFPS(), 16, Height - 32, 16, Color.MAROON);
     }
 }
