@@ -16,6 +16,9 @@
     <Content Include="Resources\**\*.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>  
+    <Content Include="Resources\**\*.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>  
     <Content Include="Resources\**\*.wav">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>   

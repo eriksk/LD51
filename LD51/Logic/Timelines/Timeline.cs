@@ -1,4 +1,5 @@
 using System.Numerics;
+using LD51.Logic.Songs;
 using Raylib_cs;
 
 namespace LD51.Logic.Timelines;
@@ -38,6 +39,13 @@ public class Metronome
         };
     }
 
+    public float GetBarsTime(int bars)
+    {
+        // beat time = time passed * hz
+        // To time for bars should be one Hz per bar? I don't know this math...
+        return bars * Hz;
+    }
+
     public void Update(float dt)
     {
         _realTime += dt;
@@ -68,12 +76,19 @@ public class Timeline
     private Metronome _metronome;
     private float _beat;
     private float _beat4th;
+    private Song _song;
+    private int _beatNumber;
+
+    const int lines = 4;
+    const float offset = 128;
+    const float spacing = 64;
 
     public Timeline()
     {
+        _song = SongModel.Load("Resources/songs/song_1.json").CreateSong();
         _metronome = new Metronome()
         {
-            BPM = 60
+            BPM = _song.BPM
         };
         _metronome.OnBeat += () =>
         {
@@ -82,6 +97,11 @@ public class Timeline
         };
         _metronome.OnBeat4th += (beat) =>
         {
+            _beatNumber++;
+            if (_beatNumber > _song.Notes.Length - 1)
+            {
+                _beatNumber = 0;
+            }
             System.Console.WriteLine("1/4");
             _beat4th = 1f;
         };
@@ -101,24 +121,49 @@ public class Timeline
 
     public void Draw()
     {
-        const int lines = 4;
 
-        const float offset = 128;
-        const float spacing = 64;
+        var currentNote = 0;
+
+        if (_beatNumber > -1 && _beat < _song.Notes.Length - 1)
+        {
+            switch (_song.Notes[_beatNumber])
+            {
+                case "c1": currentNote = 1; break;
+                case "d1": currentNote = 1 | 2; break;
+                case "e1": currentNote = 2; break;
+                case "f1": currentNote = 2 | 4; break;
+                case "g1": currentNote = 4; break;
+                case "a1": currentNote = 4 | 8; break;
+                case "b1": currentNote = 8; break;
+                case "c2": currentNote = 1 | 2 | 4 | 8; break;
+            }
+        }
+
+        var lookup = new Dictionary<int, int>()
+        {
+            { 1, 1 },
+            { 2, 2 },
+            { 3, 4 },
+            { 4, 8 },
+        };
 
         for (var i = 0; i < lines; i++)
         {
             var start = new Vector2(0, offset + spacing * i);
             var end = new Vector2(1280, start.Y);
 
-            Raylib.DrawLine(
-                (int)start.X,
-                (int)start.Y,
-                (int)end.X,
-                (int)end.Y,
-                Color.MAROON
+            var number = lookup[i + 1];
+            var isCurrent = (currentNote & number) == number;
+
+            Raylib.DrawLineEx(
+                start,
+                end,
+                2f,
+                isCurrent ? Color.GREEN : Color.MAROON
             );
         }
+
+        DrawBars();
 
         var height = (spacing * lines);
         var sineYPosition = offset - (spacing * 0.5f) + (height * 0.5f) + (_metronome.Sine * height * 0.5f);
@@ -129,6 +174,8 @@ public class Timeline
             4,
             Color.MAROON
         );
+
+        var debugPosition = new Vector2(16, 512);
 
         if (_beat > 0f)
         {
@@ -143,7 +190,6 @@ public class Timeline
             );
         }
 
-
         if (_beat4th > 0f)
         {
             var h = (int)(128 * _beat4th);
@@ -157,7 +203,38 @@ public class Timeline
             );
         }
 
-        Raylib.DrawText("Wave Hz: " + MathF.Round(_metronome.Hz, 2), 128, 128, 32, Color.MAROON);
-        Raylib.DrawText("Time: " + MathF.Round(_metronome.RealTime, 2), 128, 128 + 32, 32, Color.MAROON);
+        Raylib.DrawText("Wave Hz: " + MathF.Round(_metronome.Hz, 2), (int)debugPosition.X, (int)debugPosition.Y, 32, Color.MAROON);
+        Raylib.DrawText("Time: " + MathF.Round(_metronome.RealTime, 2), (int)debugPosition.X, (int)debugPosition.Y + 32, 32, Color.MAROON);
+        Raylib.DrawText("BeatNumber: " + _beatNumber, (int)debugPosition.X, (int)debugPosition.Y + 64, 32, Color.MAROON);
+    }
+
+    private void DrawBars()
+    {
+        const float basis = 64f;
+
+        var barTime = _metronome.GetBarsTime(1);
+
+        var bars = 8;
+        var maxDistance = 1600 - basis;
+
+        var oneBarDistance = maxDistance / (float)bars;
+        var beatDistance = oneBarDistance;
+
+        var xOffset = 0f;
+
+        for (var i = 0; i < bars; i++)
+        {
+            var height = (spacing * lines);
+
+            var start = new Vector2(basis + xOffset + beatDistance * i, offset - spacing * 0.5f);
+            var end = new Vector2(basis + xOffset + beatDistance * i, start.Y + height);
+
+            Raylib.DrawLine(
+                (int)start.X,
+                (int)start.Y,
+                (int)end.X,
+                (int)end.Y,
+                Color.MAROON);
+        }
     }
 }
