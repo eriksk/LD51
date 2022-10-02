@@ -19,16 +19,23 @@ public class SongModel
         foreach (var bar in Notes)
         {
             var segment = bar;
+            var count = 0;
             while (segment.Any())
             {
                 if (segment[0] == '-')
                 {
                     notes.Add(string.Empty);
                     segment = segment.Substring(1);
+                    count++;
                     continue;
                 }
                 notes.Add(segment.Substring(0, 2));
                 segment = segment.Substring(2);
+                count++;
+            }
+            if(count != 4)
+            {
+                throw new Exception($"Error in song, '{bar}'");
             }
         }
 

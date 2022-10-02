@@ -4,84 +4,26 @@ using Raylib_cs;
 
 namespace LD51.Logic.Timelines;
 
-public class Metronome
-{
-    public int BPM;
-    private float _realTime;
-    private float _beatTime;
-    private float _beatTime4th;
-
-    public event Action OnBeat;
-    public event Action<int> OnBeat4th;
-
-    public float Sine { get; private set; }
-    public float Sine4th { get; private set; }
-    public float Hz => BPM / 60f;
-    public float RealTime => _realTime;
-
-    private Sound _tickSound;
-    private Sound _tickSecondarySound;
-
-    public Metronome()
-    {
-        Sine = 0f;
-        Sine4th = 0f;
-        _tickSound = Raylib.LoadSound("Resources/sounds/metronome_secondary.wav");
-        _tickSecondarySound = Raylib.LoadSound("Resources/sounds/metronome.wav");
-        OnBeat += () =>
-        {
-            Raylib.PlaySound(_tickSound);
-        };
-        OnBeat4th += (tick) =>
-        {
-            if (tick == 1) return;
-            Raylib.PlaySound(_tickSecondarySound);
-        };
-    }
-
-    public float GetBarsTime(int bars)
-    {
-        // beat time = time passed * hz
-        // To time for bars should be one Hz per bar? I don't know this math...
-        return bars * Hz;
-    }
-
-    public void Update(float dt)
-    {
-        _realTime += dt;
-        var oldBeatTime = _beatTime;
-        _beatTime = _realTime * Hz;
-        _beatTime4th += Hz * 4f * dt;
-
-        var oldSine = Sine;
-        Sine = MathF.Sin(_beatTime * MathF.PI);
-        var oldSine4th = Sine4th;
-        Sine4th = MathF.Sin(_beatTime4th * MathF.PI);
-
-        var beat = 0;
-        if ((oldSine < 0f && Sine >= 0f))
-        {
-            OnBeat?.Invoke();
-            beat = 1;
-        }
-        if ((oldSine4th < 0f && Sine4th >= 0f))
-        {
-            OnBeat4th?.Invoke(beat);
-        }
-    }
-}
-
 public class Timeline
 {
     private Metronome _metronome;
-    private float _beat;
-    private float _beat4th;
     private Song _song;
     private int _beatNumber;
 
-    const int lines = 4;
-    const float offset = 128;
-    const float spacing = 64;
+    const int Lines = 4;
+    const float Offset = 128;
+    const float Spacing = 64;
+    const float TimelineDuration = 10f;
+    const float TimelineWidth = 1600;
+    const float Basis = 64f;
+
+    Dictionary<int, int> LineToNoteBitsLookup = new Dictionary<int, int>()
+    {
+        { 1, 1 },
+        { 2, 2 },
+        { 3, 4 },
+        { 4, 8 },
+    };
 
     public Timeline()
     {
@@ -90,69 +32,37 @@ public class Timeline
         {
             BPM = _song.BPM
         };
-        _metronome.OnBeat += () =>
-        {
-            System.Console.WriteLine("1/1");
-            _beat = 1f;
-        };
-        _metronome.OnBeat4th += (beat) =>
+        _metronome.OnBeat += (b) =>
         {
             _beatNumber++;
             if (_beatNumber > _song.Notes.Length - 1)
             {
                 _beatNumber = 0;
             }
-            System.Console.WriteLine("1/4");
-            _beat4th = 1f;
         };
     }
 
     public void Update(float dt)
     {
         _metronome.Update(dt);
-        _beat -= 5f * dt;
-        if (_beat < .1f)
-            _beat = .1f;
-
-        _beat4th -= 5f * dt;
-        if (_beat4th < .1f)
-            _beat4th = .1f;
     }
 
     public void Draw()
     {
-
         var currentNote = 0;
 
-        if (_beatNumber > -1 && _beat < _song.Notes.Length - 1)
+        if (_beatNumber > -1 && _beatNumber < _song.Notes.Length - 1)
         {
-            switch (_song.Notes[_beatNumber])
-            {
-                case "c1": currentNote = 1; break;
-                case "d1": currentNote = 1 | 2; break;
-                case "e1": currentNote = 2; break;
-                case "f1": currentNote = 2 | 4; break;
-                case "g1": currentNote = 4; break;
-                case "a1": currentNote = 4 | 8; break;
-                case "b1": currentNote = 8; break;
-                case "c2": currentNote = 1 | 2 | 4 | 8; break;
-            }
+            currentNote = GetNoteBits(_song.Notes[_beatNumber]);
         }
 
-        var lookup = new Dictionary<int, int>()
+        // Highlight current note
+        for (var i = 0; i < Lines; i++)
         {
-            { 1, 1 },
-            { 2, 2 },
-            { 3, 4 },
-            { 4, 8 },
-        };
-
-        for (var i = 0; i < lines; i++)
-        {
-            var start = new Vector2(0, offset + spacing * i);
+            var start = new Vector2(0, Offset + Spacing * i);
             var end = new Vector2(1280, start.Y);
 
-            var number = lookup[i + 1];
+            var number = LineToNoteBitsLookup[i + 1];
             var isCurrent = (currentNote & number) == number;
 
             Raylib.DrawLineEx(
@@ -163,78 +73,99 @@ public class Timeline
             );
         }
 
-        DrawBars();
+        DrawBars(_metronome.Beat4, Color.GRAY, 1);
+        DrawBars(_metronome.Beat1, Color.MAROON, 2);
 
-        var height = (spacing * lines);
-        var sineYPosition = offset - (spacing * 0.5f) + (height * 0.5f) + (_metronome.Sine * height * 0.5f);
-        Raylib.DrawRectangle(
-            128,
-            (int)sineYPosition,
-            4,
-            4,
-            Color.MAROON
-        );
-
-        var debugPosition = new Vector2(16, 512);
-
-        if (_beat > 0f)
-        {
-            var h = (int)(128 * _beat);
-
-            Raylib.DrawRectangle(
-                1280 / 2,
-                (720 - 128) - h,
-                64,
-                h,
-                Color.MAROON
-            );
-        }
-
-        if (_beat4th > 0f)
-        {
-            var h = (int)(128 * _beat4th);
-
-            Raylib.DrawRectangle(
-                (1280 / 2) + 78,
-                (720 - 128) - h,
-                64,
-                h,
-                Color.MAROON
-            );
-        }
-
-        Raylib.DrawText("Wave Hz: " + MathF.Round(_metronome.Hz, 2), (int)debugPosition.X, (int)debugPosition.Y, 32, Color.MAROON);
-        Raylib.DrawText("Time: " + MathF.Round(_metronome.RealTime, 2), (int)debugPosition.X, (int)debugPosition.Y + 32, 32, Color.MAROON);
-        Raylib.DrawText("BeatNumber: " + _beatNumber, (int)debugPosition.X, (int)debugPosition.Y + 64, 32, Color.MAROON);
+        DrawNotes((int)(TimelineDuration / _metronome.Beat4.TimePerBeat));
     }
 
-    private void DrawBars()
+    private int GetNoteBits(string note)
     {
-        const float basis = 64f;
+        switch (note)
+        {
+            case "c1": return 1;
+            case "d1": return 1 | 2;
+            case "e1": return 2;
+            case "f1": return 2 | 4;
+            case "g1": return 4;
+            case "a1": return 4 | 8;
+            case "b1": return 8;
+            case "c2": return 1 | 2 | 4 | 8;
+        }
 
-        var barTime = _metronome.GetBarsTime(1);
+        return 0;
+    }
 
-        var bars = 8;
-        var maxDistance = 1600 - basis;
+    private void DrawNotes(int bars)
+    {
+        var currentIndex = _beatNumber;
 
-        var oneBarDistance = maxDistance / (float)bars;
-        var beatDistance = oneBarDistance;
+        for (var barIndex = 0; barIndex < bars; barIndex++)
+        {
+            var note = _song.Notes[currentIndex];
+            var bits = GetNoteBits(note);
 
-        var xOffset = 0f;
+            for (var lineIndex = 0; lineIndex < Lines; lineIndex++)
+            {
+                var number = LineToNoteBitsLookup[lineIndex + 1];
+                var isCurrent = (bits & number) == number;
+                if (isCurrent)
+                {
+                    DrawOnTimeline(_metronome.Beat4, lineIndex, barIndex + 1, Color.MAROON);
+                }
+            }
+
+            currentIndex++;
+            if (currentIndex > _song.Notes.Length - 1)
+            {
+                currentIndex = 0;
+            }
+        }
+    }
+
+    private void DrawOnTimeline(Beat beat, int line, int barsAhead, Color color)
+    {
+        var position = GetPositionOnLine(beat, line, barsAhead);
+
+        Raylib.DrawCircle(
+            (int)position.X,
+            (int)position.Y,
+            16,
+            color
+        );
+    }
+
+    private Vector2 GetPositionOnLine(Beat beat, int line, int barsAhead)
+    {
+        var bars = TimelineDuration / beat.TimePerBeat;
+        var barSegmentWidth = TimelineWidth / (float)bars;
+        var fullWidth = barSegmentWidth * barsAhead;
+        var offset = beat.Progress * -barSegmentWidth;
+
+        var x = Basis + offset + fullWidth;
+        var y = Offset - Spacing * 0.5f + (Spacing * line) + Spacing * 0.5f;
+
+        return new Vector2(x, y);
+    }
+
+    private void DrawBars(Beat beat, Color color, int lineThickness)
+    {
+        var bars = TimelineDuration / beat.TimePerBeat;
+        var barSegmentWidth = TimelineWidth / (float)bars;
+        var xOffset = beat.Progress * -barSegmentWidth;
 
         for (var i = 0; i < bars; i++)
         {
-            var height = (spacing * lines);
+            var height = (Spacing * Lines);
 
-            var start = new Vector2(basis + xOffset + beatDistance * i, offset - spacing * 0.5f);
-            var end = new Vector2(basis + xOffset + beatDistance * i, start.Y + height);
+            var start = new Vector2(Basis + xOffset + barSegmentWidth * i, Offset - Spacing * 0.5f);
+            var end = new Vector2(Basis + xOffset + barSegmentWidth * i, start.Y + height);
 
-            Raylib.DrawLine(
-                (int)start.X,
-                (int)start.Y,
-                (int)end.X,
-                (int)end.Y,
-                Color.MAROON);
+            Raylib.DrawLineEx(
+                start,
+                end,
+                lineThickness,
+                color);
         }
     }
 }
